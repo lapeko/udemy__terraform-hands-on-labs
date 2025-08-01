@@ -56,10 +56,10 @@ resource "aws_route_table" "public_route_table" {
 resource "aws_route_table" "private_route_table" {
   vpc_id = aws_vpc.vpc.id
 
-  # route {
-  #   cidr_block     = "0.0.0.0/0"
-  #   nat_gateway_id = aws_nat_gateway.nat_gateway.id
-  # }
+  route {
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.nat_gateway.id
+  }
   tags = {
     Name      = "demo_private_rtb"
     Terraform = "true"
@@ -87,19 +87,44 @@ resource "aws_internet_gateway" "internet_gateway" {
   }
 }
 
-# resource "aws_eip" "nat_gateway_eip" {
-#   domain     = "vpc"
-#   depends_on = [aws_internet_gateway.internet_gateway]
-#   tags = {
-#     Name = "demo_igw_eip"
-#   }
-# }
+resource "aws_eip" "nat_gateway_eip" {
+  domain     = "vpc"
+  depends_on = [aws_internet_gateway.internet_gateway]
+  tags = {
+    Name = "demo_igw_eip"
+  }
+}
 
-# resource "aws_nat_gateway" "nat_gateway" {
-#   depends_on    = [aws_subnet.public_subnets]
-#   allocation_id = aws_eip.nat_gateway_eip.id
-#   subnet_id     = aws_subnet.public_subnets["public_subnet_1"].id
-#   tags = {
-#     Name = "demo_nat_gateway"
-#   }
-# }
+resource "aws_nat_gateway" "nat_gateway" {
+  depends_on    = [aws_subnet.public_subnets]
+  allocation_id = aws_eip.nat_gateway_eip.id
+  subnet_id     = aws_subnet.public_subnets["public_subnet_1"].id
+  tags = {
+    Name = "demo_nat_gateway"
+  }
+}
+
+data "aws_ami" "ubuntu" {
+  most_recent = true
+
+  filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+
+  owners = ["099720109477"]
+}
+
+resource "aws_instance" "web_server" {
+  ami           = data.aws_ami.ubuntu.id
+  instance_type = "t3.micro"
+  subnet_id     = aws_subnet.public_subnets["public_subnet_1"].id
+  tags = {
+    Name = "Ubuntu EC2 Server"
+  }
+}
